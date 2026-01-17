@@ -1,0 +1,4 @@
+loadFile("LongitudinalVehicle.mo");
+getErrorString();
+buildModelFMU(LongitudinalVehicle, version="2.0", fmuType="cs");
+getErrorString();

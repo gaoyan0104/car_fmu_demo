@@ -1,0 +1,7 @@
+vehicle.mass_kg: m
+vehicle.Pmax_W: Pmax
+vehicle.CdA: CdA
+vehicle.Crr: Crr
+scenario.v0_mps: v0
+scenario.vTarget_mps: vTarget
+scenario.tMax_s: tMax

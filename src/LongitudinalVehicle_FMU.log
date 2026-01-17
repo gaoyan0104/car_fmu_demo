@@ -1,0 +1,6 @@
+mingw32-make: Entering directory 'C:/Users/ADMINI~1/Desktop/SysMLv2/CAR_FM~1'
+rm -f 933.fmutmp/sources/LongitudinalVehicle_init.xml
+cp -a "D:/openmodelica/share/omc/runtime/c/fmi/buildproject/"* 933.fmutmp/sources
+cp -a LongitudinalVehicle_FMU.libs 933.fmutmp/sources/
+mingw32-make: Leaving directory 'C:/Users/ADMINI~1/Desktop/SysMLv2/CAR_FM~1'
+RESULT: 0 

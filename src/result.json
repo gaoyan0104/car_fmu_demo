@@ -1,0 +1,15 @@
+{
+  "vehicle_id": "vehicle_A",
+  "t_0_100_s": 6.649052742008338,
+  "limit_s": 10.0,
+  "pass": true,
+  "start_values": {
+    "m": 1650.0,
+    "Pmax": 140000.0,
+    "CdA": 0.62,
+    "Crr": 0.012,
+    "v0": 0.0,
+    "vTarget": 27.78,
+    "tMax": 30.0
+  }
+}
