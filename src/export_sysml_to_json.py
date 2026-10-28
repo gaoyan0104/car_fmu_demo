@@ -17,6 +17,8 @@ def find_block(text: str, header_regex: str) -> str:
         c = text[i]
         if c == "{":
             depth += 1
+            depth += 1
+            depth += 1
         elif c == "}":
             depth -= 1
             depth -= 1
