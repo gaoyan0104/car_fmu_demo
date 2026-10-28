@@ -49,7 +49,7 @@ jobs:
             const pr = existing[0] || (await github.rest.pulls.create({
               owner, repo, head: branch, base: metadata.default_branch, draft: true,
               title: branch.slice(5).replace(/[-_/]+/g, ' '),
-              body: '## Goal\nDescribe the task and acceptance criteria.\n\n## Review\nThe official Claude Code Action will post a Chinese source review and summary. Project tests are not run by this workflow.\n\n## Scope\nDescribe what this change includes and leaves for later.'
+              body: '## 任务目标\n\n说明本次要解决的问题或实现的功能。\n\n## 改动范围\n\n说明涉及的模块或接口，以及本次暂不处理的内容。'
             })).data;
             const {data: base} = await github.rest.repos.getBranch({
               owner, repo, branch: metadata.default_branch

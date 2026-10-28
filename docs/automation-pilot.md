@@ -23,6 +23,8 @@
 
 本流程只审查源码，不运行项目测试、构建或 FMU 仿真。总结必须明确说明这一点；AI 没发现问题不代表测试通过。
 
+从最新 `main` 创建的任务分支，自动生成的 PR 正文只包含“任务目标”和“改动范围”，由提交者补充；AI 不把缺少验收标准单独列为问题。已有 PR 继续使用其原有正文，审查总结在评论中更新。
+
 ## 第一步：上传安装配置
 
 当前准备分支是 `codex/review-automation-pilot`。在有该仓库写入权限且已经完成 GitHub 登录的终端执行：
@@ -79,7 +81,7 @@ git push -u origin work/demo-review
 
 模型调用失败、权限不足或只输出最终对话而没实际发表评论，均不能当作线上验收成功。此测试仓库的最近一条机器人评论由提示词指导使用 GitHub CLI 内置 `--edit-last --create-if-none` 更新。
 
-补充 PR 的 Goal、范围和验收标准后，可在 Actions 的 **Review automation → Run workflow** 手动重跑：执行分支选 `main`，输入 `branch` 填 `work/demo-review`。这次直接审查该分支当前提交，不等待其他工作流。
+补充 PR 的“任务目标”和“改动范围”后，可在 Actions 的 **Review automation → Run workflow** 手动重跑：执行分支选 `main`，输入 `branch` 填 `work/demo-review`。这次直接审查该分支当前提交，不等待其他工作流。
 
 ## 第五步：修复并再次上传
 
