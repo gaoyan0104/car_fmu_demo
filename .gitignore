@@ -1,0 +1,10 @@
+node_modules/
+.review-output/
+.venv/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
