@@ -73,7 +73,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-      issues: write
     env:
       ANTHROPIC_BASE_URL: https://api.deepseek.com/anthropic
       ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ vars.AI_REVIEW_MODEL || 'deepseek-flash' }}
@@ -83,7 +82,7 @@ jobs:
       - name: Load the default branch review prompt
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ needs.prepare.outputs.base_sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Review with the official Claude Code Action
         uses: anthropics/claude-code-action@d70510b174a1244958df0b03166a54912811f3e6 # v1
@@ -104,4 +103,4 @@ jobs:
             --model ${{ vars.AI_REVIEW_MODEL || 'deepseek-flash' }}
             --max-turns 30
             --tools "Read,Glob,Grep,Bash"
-            --allowedTools "Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh api --method GET:*),Bash(gh pr comment:*),Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue create:*)"
+            --allowedTools "Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh api --method GET:*),Bash(gh pr comment:*)"
