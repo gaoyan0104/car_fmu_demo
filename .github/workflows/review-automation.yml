@@ -1,0 +1,107 @@
+name: Review automation
+
+on:
+  push:
+    branches: ['work/**']
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Existing work/<task> branch in this repository'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    if: github.event.deleted != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: write
+    outputs:
+      pr_number: ${{ steps.pr.outputs.pr_number }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      base_sha: ${{ steps.pr.outputs.base_sha }}
+    steps:
+      - name: Create or find the task PR
+        id: pr
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          TASK_BRANCH: ${{ inputs.branch || github.ref_name }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const branch = process.env.TASK_BRANCH;
+            if (!branch?.startsWith('work/')) throw new Error('Use a work/<task> branch.');
+            const {data: metadata} = await github.rest.repos.get({owner, repo});
+            const {data: head} = await github.rest.repos.getBranch({owner, repo, branch});
+            if (context.eventName === 'push' && context.sha !== head.commit.sha) {
+              core.notice('The branch has moved; the newer push will start its review.');
+              return;
+            }
+            const {data: existing} = await github.rest.pulls.list({
+              owner, repo, head: `${owner}:${branch}`, base: metadata.default_branch, state: 'open'
+            });
+            const pr = existing[0] || (await github.rest.pulls.create({
+              owner, repo, head: branch, base: metadata.default_branch, draft: true,
+              title: branch.slice(5).replace(/[-_/]+/g, ' '),
+              body: '## Goal\nDescribe the task and acceptance criteria.\n\n## Review\nThe official Claude Code Action will post a Chinese source review and summary. Project tests are not run by this workflow.\n\n## Scope\nDescribe what this change includes and leaves for later.'
+            })).data;
+            core.setOutput('pr_number', pr.number);
+            core.setOutput('head_sha', head.commit.sha);
+            core.setOutput('base_sha', pr.base.sha);
+            // The pinned Claude Code Action accepts workflow_dispatch, not push.
+            // Only push runs dispatch; the dispatched run proceeds to review.
+            if (context.eventName === 'push') {
+              await github.rest.actions.createWorkflowDispatch({
+                owner, repo, workflow_id: 'review-automation.yml',
+                ref: metadata.default_branch, inputs: {branch}
+              });
+              core.notice(`Requested AI review for PR #${pr.number} from the default branch workflow.`);
+            }
+
+  review:
+    name: AI review and summary
+    needs: prepare
+    if: github.event_name == 'workflow_dispatch' && needs.prepare.outputs.pr_number != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    env:
+      ANTHROPIC_BASE_URL: https://api.deepseek.com/anthropic
+      ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ vars.AI_REVIEW_MODEL || 'deepseek-flash' }}
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.AI_REVIEW_MODEL || 'deepseek-flash' }}
+      ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ vars.AI_REVIEW_MODEL || 'deepseek-flash' }}
+    steps:
+      - name: Load the default branch review prompt
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.base_sha }}
+          persist-credentials: false
+      - name: Review with the official Claude Code Action
+        uses: anthropics/claude-code-action@d70510b174a1244958df0b03166a54912811f3e6 # v1
+        with:
+          github_token: ${{ github.token }}
+          anthropic_api_key: ${{ secrets.DEEPSEEK_API_KEY }}
+          allowed_bots: 'github-actions[bot]'
+          classify_inline_comments: 'false'
+          show_full_output: 'false'
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ needs.prepare.outputs.pr_number }}
+            REVIEWED HEAD SHA: ${{ needs.prepare.outputs.head_sha }}
+            DEFAULT BRANCH SHA: ${{ needs.prepare.outputs.base_sha }}
+
+            请读取并执行 .github/prompts/review.md 中的审查指令。
+          claude_args: >-
+            --model ${{ vars.AI_REVIEW_MODEL || 'deepseek-flash' }}
+            --max-turns 12
+            --tools "Read,Glob,Grep,Bash"
+            --allowedTools "Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh api --method GET:*),Bash(gh pr comment:*),Bash(gh issue create:*)"

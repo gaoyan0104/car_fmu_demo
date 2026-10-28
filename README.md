@@ -1,5 +1,7 @@
 # SysML v2 → FMU → Python 仿真
 
+> 本仓库也作为 GitHub 自动化流程的测试场。步骤见 [官方 Claude Code Action 试运行指南](docs/automation-pilot.md)：推送任务分支后自动创建 PR，官方 Action 接入 DeepSeek 完成 AI review、中文总结和按需创建后续 Issue。本流程不运行项目测试；使用已知单位错误进行审查验收。
+
 这个仓库演示一个**最小可跑通**的端到端流程：
 
 > **SysML v2（文本）** → 导出 `sim_input.json` → **Modelica** 导出 **FMU** → **Python/FMPy** 运行 **FMI** 仿真 → 输出指标（0–100 时间）与 pass/fail
