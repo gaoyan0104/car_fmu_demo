@@ -92,7 +92,7 @@ jobs:
           anthropic_api_key: ${{ secrets.DEEPSEEK_API_KEY }}
           allowed_bots: 'github-actions[bot]'
           classify_inline_comments: 'false'
-          show_full_output: 'false'
+          show_full_output: 'true'
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ needs.prepare.outputs.pr_number }}
