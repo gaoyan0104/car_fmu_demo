@@ -3,6 +3,9 @@ import re
 import sys
 from pathlib import Path
 
+
+
+
 def find_block(text: str, header_regex: str) -> str:
     """
     Find the {...} block after a header (regex).
