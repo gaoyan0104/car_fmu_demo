@@ -59,7 +59,7 @@ def main():
         },
         "scenario": {
             "v0_mps": s["v0_mps"],
-            "vTarget_mps": s["vTarget_mps"] * 3.6,
+            "vTarget_mps": s["vTarget_mps"],
             "tMax_s": s["tMax_s"]
         },
         "requirements": {
