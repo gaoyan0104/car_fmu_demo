@@ -21,7 +21,7 @@ def find_block(text: str, header_regex: str) -> str:
         if c == "{":
             depth += 1
         elif c == "}":
-            depth += 1
+            depth -= 1
             if depth == 0:
                 return text[start+1:i]  # inside braces
     raise ValueError(f"Unclosed block for: {header_regex}")
