@@ -56,7 +56,7 @@
 
 这项模拟仍由 GitHub 触发和调度：`prepare` job 在 GitHub 云端创建或查找 PR，`review` job 在本机运行官方 Claude Code Action，通过 DeepSeek 接口审查，再把总结写回 GitHub。
 
-1. 在仓库 **Settings → Actions → Runners → New self-hosted runner** 选择 Linux/x64（本例为 WSL Ubuntu）。在独立目录下载 Runner，按页面命令注册；增加自定义标签 `ai-review-local`。本机需安装 Git、GitHub CLI、curl、unzip 等基础工具，并能访问 GitHub、Action 与运行时下载地址，以及模型 API。官方 Action 会安装 Node.js、Bun 和 Claude Code。
+1. 在仓库 **Settings → Actions → Runners → New self-hosted runner** 选择 Linux/x64（本例为 WSL Ubuntu）。在独立目录下载 Runner，按页面命令注册；增加自定义标签 `ai-review-local`。本机需安装 Git、GitHub CLI、curl、unzip 等基础工具，并能访问 GitHub、Action 与运行时下载地址，以及模型 API。官方 Action 会安装 Node.js、Bun 和 Claude Code；也会复用本机已有、版本匹配的 Bun（当前固定 Action 使用 1.4.4）。本机模拟时遇到 Bun 下载的临时 TLS 错误，已通过预装该版本解决；迁移时仍需检查新机器的下载和代理配置。
 2. 注册后在 Runner 目录执行 `./run.sh`，保持终端和 WSL 运行；看到 `Listening for Jobs` 后，网页上的 Runner 应显示 Online。电脑休眠或 Runner 停止时，待审查任务会排队。
 3. 在 **Settings → Secrets and variables → Actions → Variables** 设置 `AI_REVIEW_RUNNER=ai-review-local`、`AI_REVIEW_BASE_URL=https://api.deepseek.com/anthropic`、`AI_REVIEW_MODEL=deepseek-flash`。沿用已经配置的 `DEEPSEEK_API_KEY`，无需在本机另存模型密钥。
 4. 工作流修改合入默认分支后，在 **Actions → Review automation → Run workflow** 选择默认分支，输入已有的 `work/<任务>` 分支。也可以从最新默认分支创建任务分支、提交并推送，测试自动创建 PR 的完整流程。
