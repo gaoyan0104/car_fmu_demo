@@ -149,6 +149,7 @@ jobs:
           github_token: ${{ github.token }}
           anthropic_api_key: ${{ secrets.DEEPSEEK_API_KEY }}
           allowed_bots: 'github-actions[bot]'
+          path_to_claude_code_executable: ${{ runner.environment == 'self-hosted' && vars.AI_REVIEW_CLAUDE_PATH || '' }}
           classify_inline_comments: 'false'
           show_full_output: 'false'
           prompt: |

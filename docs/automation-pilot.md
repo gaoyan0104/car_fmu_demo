@@ -45,6 +45,7 @@
 | `AI_REVIEW_RUNNER` | `ubuntu-latest` | 已注册 Runner 的专用标签，例如 `ai-review-local` |
 | `AI_REVIEW_BASE_URL` | `https://api.deepseek.com/anthropic` | 中转服务提供的 Anthropic 兼容接口根地址 |
 | `AI_REVIEW_MODEL` | `deepseek-flash` | 中转服务接受的模型名称 |
+| `AI_REVIEW_CLAUDE_PATH` | 官方 Action 自动安装 Claude Code | 自托管机器上已预装 Claude Code 的绝对路径；云端执行时忽略此项 |
 
 密钥继续放在 Secret `DEEPSEEK_API_KEY` 中。接入小组中转时将其值换成中转密钥即可；Secret 的名称不决定调用哪家服务。API 地址和模型名称通过上述 Variables 配置，不在日志或源码中填写密钥。
 
@@ -61,6 +62,8 @@
 3. 在 **Settings → Secrets and variables → Actions → Variables** 设置 `AI_REVIEW_RUNNER=ai-review-local`、`AI_REVIEW_BASE_URL=https://api.deepseek.com/anthropic`、`AI_REVIEW_MODEL=deepseek-flash`。沿用已经配置的 `DEEPSEEK_API_KEY`，无需在本机另存模型密钥。
 4. 工作流修改合入默认分支后，在 **Actions → Review automation → Run workflow** 选择默认分支，输入已有的 `work/<任务>` 分支。也可以从最新默认分支创建任务分支、提交并推送，测试自动创建 PR 的完整流程。
 5. 在本机 Runner 终端确认收到 `AI review and summary` 任务；在 Actions job 的 `Set up job` 中确认 Runner 名称是本机注册的名称，并确认 PR 总结确实更新。仅仅看到工作流成功不足以证明使用了本机，需核对 Runner 名称。
+
+下载 Claude Code 运行时较慢的机器，可预装与固定 Action 匹配的版本（当前为 2.1.312），将 `AI_REVIEW_CLAUDE_PATH` 指向可执行文件。工作流通过官方 Action 的 `path_to_claude_code_executable` 输入复用它，模型调用和审查仍由官方 Action 完成。此路径只对自托管 Runner 生效，切回云端时仍自动安装。升级固定 Action 时也应核对预装运行时版本；迁移电脑时要在新电脑安装并更新路径，不能沿用旧电脑上的路径。
 
 本次试运行使用一次性 Runner（注册时添加 `--ephemeral`），处理一个 job 后自动退出并从 GitHub 注销；需要再次试运行时重新注册、启动。测试结束后删除 `AI_REVIEW_RUNNER` Variable，可恢复云端执行；API 地址留空或仍用 DeepSeek 地址均可。普通 Runner 可用 `Ctrl+C` 停止，长期服务器可按 GitHub 官方说明安装为服务。
 
