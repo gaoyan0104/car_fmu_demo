@@ -1,107 +1,136 @@
-# 官方 Action 版：在 car_fmu_demo 试运行
+# Review Automation Pilot with the Official Claude Code Action
 
-当前流程做三件事：自动创建或复用草稿 PR、AI review、中文总结。
+The workflow creates a draft PR or reuses an existing PR, reviews its changes, and publishes a review summary.
 
 ```text
-推送 work/<任务> 分支
-  → Review automation 创建或找到草稿 PR
-  → 直接调度默认分支的 AI 审查任务
-  → anthropics/claude-code-action 读取代码、调用 DeepSeek、使用 GitHub 工具
-  → 在 PR 发布或更新中文审查总结
-  → 人决定修复和合并
+Push a work/<task> branch
+  -> Review automation creates or finds the PR
+  -> The default branch workflow starts the AI review
+  -> anthropics/claude-code-action reads code, calls DeepSeek, and uses GitHub tools
+  -> The review summary is posted or updated in the PR
+  -> A person decides what to fix and whether to merge
 ```
 
-## 这次主要配置什么
+## Configuration Files
 
-| 文件 | 职责 |
+| File | Purpose |
 | --- | --- |
-| `.github/workflows/review-automation.yml` | 推送后创建 PR、调度 AI 审查，配置官方 Action 的模型和权限 |
-| `.github/prompts/review.md` | 集中说明项目规则、审查步骤和中文总结的指令 |
-| `examples/review-automation/known-unit-error.patch` | 可重复的已知单位错误样例 |
+| `.github/workflows/review-automation.yml` | Creates PRs after a push, starts reviews, and configures the model and permissions |
+| `.github/prompts/review.md` | Defines the review steps, reporting rules, and summary format |
+| `examples/review-automation/known-unit-error.patch` | Optional example of a known speed-unit defect |
 
-模型请求、agent 工具循环和源码阅读交给官方 Claude Code Action。审查结果全部保留在 PR 中；独立后续任务由负责人另行安排。
+The official Claude Code Action handles model requests, the agent tool loop, and source reading. Review findings stay in the PR; maintainers arrange independent follow-up work separately.
 
-本流程只审查源码，不运行项目测试、构建或 FMU 仿真。总结必须明确说明这一点；AI 没发现问题不代表测试通过。
+The workflow reviews source code without running project tests, builds, or FMU simulations. A review with no findings does not establish that tests pass.
 
-从最新 `main` 创建的任务分支，自动生成的 PR 正文只包含“任务目标”和“改动范围”，由提交者补充；AI 不把缺少验收标准单独列为问题。已有 PR 继续使用其原有正文，审查总结在评论中更新。
+New task branches created from the updated default branch use a PR description with two sections: **Goal** and **Scope**. The author fills these in. Existing PR descriptions are preserved, while review summaries are updated in comments.
 
-## 第一步：上传安装配置
+## 1. Install the Configuration
 
-迁移到其他仓库时，复制 `.github/workflows/review-automation.yml` 和 `.github/prompts/review.md`，按目标项目修改提示词第 4 条的单位、接口等规则，然后通过 PR 合入目标仓库的默认分支。首次安装需要手动创建 PR；工作流合入后才能为任务分支自动创建 PR。
+To use this workflow in another repository, copy `.github/workflows/review-automation.yml` and `.github/prompts/review.md`, then merge them into its default branch through a PR. The prompt uses requirements already documented in the repository. The initial installation PR must be created manually; subsequent task PRs can be created automatically.
 
-本文和演示补丁仅用于说明与测试，不是工作流运行的必需文件。仓库名称和默认分支由 GitHub 自动读取，无需写死 `car_fmu_demo` 或 `main`。
+This guide and the optional demo patch are for documentation and testing. The workflow discovers the repository name and default branch through GitHub.
 
-## 第二步：网页配置
+Create task branches from the updated default branch. A push uses the workflow stored on the pushed branch, so an older branch can still create a PR using an older template.
 
-1. **Settings → Secrets and variables → Actions → Secrets → New repository secret**：名称填 `DEEPSEEK_API_KEY`，值填写你自己的 DeepSeek API 密钥。
-2. **Settings → Actions → General → Workflow permissions**：允许 GitHub Actions 创建 Pull Request；若界面显示 “Allow GitHub Actions to create and approve pull requests”，勾选并保存。AI 负责审查和发布评论，合并由人决定。
+## 2. Configure GitHub
 
-模型默认 `deepseek-flash`；需要更改时添加 Variable `AI_REVIEW_MODEL`。密钥按仓库隔离，Daidalis 仓库中的 Secret 不会自动用于这里。
+1. Open **Settings -> Secrets and variables -> Actions -> Secrets -> New repository secret**. Add `DEEPSEEK_API_KEY` with your DeepSeek API key.
+2. Open **Settings -> Actions -> General -> Workflow permissions**. Enable **Allow GitHub Actions to create and approve pull requests** if that option is shown. The AI reviews and comments; a person decides whether to merge.
 
-工作流将 `DEEPSEEK_API_KEY` 传给官方 Action 的 `anthropic_api_key` 输入，并将 `ANTHROPIC_BASE_URL` 配为 `https://api.deepseek.com/anthropic`。这里采用 DeepSeek 的 Anthropic 兼容接口，不是之前自写客户端使用的 Chat Completions 接口。
+The default model is `deepseek-flash`. Set the `AI_REVIEW_MODEL` repository variable to choose another model. Secrets are configured separately for each repository.
 
-工作流显式提供 GitHub 自带的 `GITHUB_TOKEN`，不要求额外安装 Claude GitHub App，也不把个人 GitHub PAT 写进源码。上传仓库仍需要你的 GitHub 登录；DeepSeek 密钥不能用于 GitHub 登录。
+The workflow passes `DEEPSEEK_API_KEY` to the Action's `anthropic_api_key` input and sets `ANTHROPIC_BASE_URL` to `https://api.deepseek.com/anthropic`, using DeepSeek's Anthropic-compatible API.
 
-## 第三步：制造一个可验证的错误
+The workflow explicitly supplies GitHub's built-in `GITHUB_TOKEN`. No separate Claude GitHub App installation or personal access token is required for the workflow. Pushing code still requires your GitHub login.
 
-安装 PR 合并后，在本地执行。每次测试请换一个未使用过的分支名：
+## 3. Prepare a Repeatable Defect
+
+After the installation PR is merged, start from the latest default branch. Use a new branch name for each experiment. The following commands assume the default branch is `main`:
 
 ```bash
 git switch main
-git pull --ff-only
-git switch -c work/demo-review
-git apply examples/review-automation/known-unit-error.patch
-git diff
-git add src/export_sysml_to_json.py
-git commit -m "Demo a known speed-unit defect"
-git push -u origin work/demo-review
+git pull --ff-only origin main
+git switch -c work/demo-review-english
 ```
 
-补丁只修改 exporter 中的速度表达式：把 `vTarget_mps` 错误乘以 `3.6`，使 `27.78 m/s` 导出为 `100.008`，但字段仍表示 m/s。
+In `src/export_sysml_to_json.py`, add the following validation inside `find_block`, immediately before `m = re.search(...)`:
 
-本地只需 Git 即可构造样例。云端由官方 Action 安装 Claude Code 运行时，无需为这套审查流程安装 Python、FMPy 或 OpenModelica。
+```python
+    if not header_regex:
+        raise ValueError("header_regex must not be empty")
+```
 
-## 第四步：看 GitHub 结果
+Then deliberately change the closing-brace branch from `depth -= 1` to:
 
-打开仓库 Actions，查看 **Review automation**。一次推送会产生两次运行：`push` 运行创建 PR 并发起调度，随后 `workflow_dispatch` 运行执行 AI 审查。第一次运行的 AI job 显示跳过是正常的。
+```python
+        elif c == "}":
+            depth += 1
+```
 
-期望看到：
+This prevents the depth from returning to zero for a valid block. Keep the input validation when fixing the defect so the PR retains a real change. If that validation already exists, choose another legitimate change that will remain after the defect is fixed.
 
-1. 自动创建一个 Draft PR。
-2. 官方 Action 阅读差异和相关文件，在 PR 中用中文指出单位错误、源码位置和影响。
-3. 总结注明“源码审查，未运行项目测试、构建或仿真”。
-
-模型调用失败、权限不足或只输出最终对话而没实际发表评论，均不能当作线上验收成功。工作流会检查本轮是否存在带专用标记、完整提交 SHA 和新更新时间的机器人总结；没有找到则报错。成功时，Actions 运行摘要中提供总结链接。
-
-总结使用隐藏标记 `<!-- ai-pr-review -->` 定位。同一 PR 后续审查更新这条总结，保留其他评论。第一次使用此版本时，旧版没有标记的总结会保留，机器人会新建一条带标记的总结。
-
-补充 PR 的“任务目标”和“改动范围”后，可在 Actions 的 **Review automation → Run workflow** 手动重跑：执行分支选 `main`，输入 `branch` 填 `work/demo-review`。这次直接审查该分支当前提交，不等待其他工作流。
-
-## 第五步：修复并再次上传
+Commit and push:
 
 ```bash
-git apply --reverse examples/review-automation/known-unit-error.patch
 git add src/export_sysml_to_json.py
-git commit -m "Fix the intentional speed-unit conversion"
+git commit -m "Add parser input validation"
+git push -u origin work/demo-review-english
+```
+
+The Action installs the Claude Code runtime on the runner. This review workflow does not require you to install Python, FMPy, or OpenModelica on the runner.
+
+## 4. Check the First Review
+
+Open **Actions -> Review automation**. One push normally produces two runs: the `push` run prepares the PR and dispatches the workflow; the `workflow_dispatch` run performs the AI review. The AI job being skipped in the first run is expected.
+
+Check that:
+
+1. A draft PR is created with **Goal** and **Scope** in its description.
+2. A review comment contains **Change Summary** and **Review Findings**.
+3. The findings identify the incorrect closing-brace depth update, with its code location, trigger conditions, impact, and a fix suggestion.
+
+The workflow checks for a published bot summary with the dedicated marker, the full reviewed commit ID, and an updated timestamp for this run. If no matching summary is found, the run fails. Successful runs include a link to the summary in the Actions run summary.
+
+The hidden marker `<!-- ai-pr-review -->` identifies the review comment. Later reviews update this comment and preserve other comments. Older summaries without the marker are retained; the first marked summary is created separately.
+
+After filling in the PR's **Goal** and **Scope**, you can rerun the review through **Review automation -> Run workflow**. Select the default branch as the execution branch and enter `work/demo-review-english` in the `branch` input.
+
+Wait for the first review to finish before continuing.
+
+## 5. Fix the Defect and Push Again
+
+Restore the closing-brace branch to:
+
+```python
+        elif c == "}":
+            depth -= 1
+```
+
+Keep the input validation, then commit and push:
+
+```bash
+git add src/export_sysml_to_json.py
+git commit -m "Fix closing brace depth tracking"
 git push
 ```
 
-Review automation 应对最新提交重新审查，确认单位错误已修复并更新总结。
+The next review should use the same PR, update the same marked comment, and note that the earlier defect is fixed. Findings that still apply should use current code locations and evidence.
 
-同一分支后续推送会复用仍打开的 PR，包括已经从草稿转为待审核的 PR，不会把它重新改为草稿。同一 PR 的新审查会取消尚未完成的旧审查；获得运行机会后再读取最新提交。发布前还会检查 PR 是否仍打开且提交未变，避免把旧结果当作最新结论。
+Further pushes reuse the open PR, including a PR already marked ready for review. The workflow does not turn it back into a draft. A new review cancels an unfinished review for the same PR and resolves the latest commit after acquiring its concurrency slot. The PR state and commit are checked again before publishing.
 
-只创建分支而没有提交文件改动时，流程正常跳过，不建 PR、不调用模型。缺少 `DEEPSEEK_API_KEY` 时，在调用模型前明确报错。修复代码后仍按普通开发方式 `git commit`、`git push` 即可。
+If the branch has no file changes relative to the default branch, the workflow skips PR creation and the AI call. This is why the experiment keeps the input validation after fixing the intentional defect. A missing `DEEPSEEK_API_KEY` is reported before calling the model.
 
-演示结束后，在网页关闭演示 PR，按需删除演示分支。已安装到 `main` 的流程可以继续用于新的 `work/<任务>` 分支。
+Close the experimental PR when finished and delete its branch if desired.
 
-## 为什么推送后分两次运行
+## Why a Push Starts Two Runs
 
-固定的官方 Action 版本为 `d70510b174a1244958df0b03166a54912811f3e6`（v1），其 Claude Code 运行时为 2.1.312。该版本接受 `workflow_dispatch`，不直接接受 `push`。
+The workflow pins the official Action to `d70510b174a1244958df0b03166a54912811f3e6`. This version accepts `workflow_dispatch` and does not directly accept `push`.
 
-因此，同一个工作流分两种入口：`push` 只准备 PR 并调用 GitHub 的 `workflow_dispatch` 接口；`workflow_dispatch` 准备 PR 后执行官方 Action，不再发起调度，所以不会循环。GitHub 允许 `GITHUB_TOKEN` 触发这种事件，不需要额外 PAT。准备 job 的 `actions: write` 用于调度；官方 Action 显式允许 `github-actions[bot]` 账号发起的这类运行。
+The `push` entry prepares a PR and calls GitHub's workflow dispatch API. The dispatched run prepares the PR and runs the Action without dispatching again. GitHub permits `GITHUB_TOKEN` to trigger this event. The prepare job needs `actions: write` to dispatch, and the Action allows `github-actions[bot]` to initiate these runs.
 
-所有审查指令都写在 `.github/prompts/review.md`，修改审查要求时编辑这一份文件即可。AI 从目标默认分支的最新提交读取提示词，通过 GitHub 工具读取待审查提交的源码并发布 PR 评论。它不执行提交中的代码。工作流成功表示本轮审查总结已发布（或本轮已过期/无差异而跳过），不代表代码无缺陷，合并由人决定。
+Review instructions live in `.github/prompts/review.md`. The review job reads the prompt from the latest default branch commit, uses GitHub tools to read the commit under review, and publishes the summary without executing project code. A successful workflow means the review summary was published, or the run was skipped because it was outdated or had no changes. Merging remains a human decision.
 
-审查 job 仅保留读取代码和写入 PR 评论所需的权限，不配置 `issues: write`，不提供创建 Issue 的工具。GitHub 的普通 PR 评论也使用 `issues/comments` API 路径，此路径仅用于定位和更新本流程的总结。验收时需要确认 Actions 运行成功，且 PR 中实际出现了对应提交的审查总结；本地检查不能替代云端验收。
+The review job has permissions to read code and write PR comments. GitHub uses the `issues/comments` API for ordinary PR comments as well; this workflow uses it to locate and update its summary. It does not configure `issues: write` or provide Issue creation tools. Verify both the Actions result and the review comment for the relevant commit.
 
-参考：[官方 Action](https://github.com/anthropics/claude-code-action)、[DeepSeek Anthropic 兼容接口](https://api-docs.deepseek.com/zh-cn/guides/anthropic_api/)、[GitHub 工作流之间的触发规则](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow)、[GitHub CLI 评论更新](https://cli.github.com/manual/gh_pr_comment)。
+References: [Official Action](https://github.com/anthropics/claude-code-action), [DeepSeek Anthropic-compatible API](https://api-docs.deepseek.com/guides/anthropic_api/), [Triggering a workflow from a workflow](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow), [GitHub CLI PR comments](https://cli.github.com/manual/gh_pr_comment).

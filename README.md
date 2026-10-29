@@ -1,6 +1,6 @@
 # SysML v2 → FMU → Python 仿真
 
-> 本仓库也作为 GitHub 自动化流程的测试场。步骤见 [官方 Claude Code Action 试运行指南](docs/automation-pilot.md)：推送任务分支后自动创建 PR，官方 Action 接入 DeepSeek 完成 AI review 和中文总结。本流程不运行项目测试；使用已知单位错误进行审查验收。
+> This repository also serves as a pilot for GitHub review automation. See the [Claude Code Action pilot guide](docs/automation-pilot.md): pushing a task branch automatically creates a PR, and the official Action uses DeepSeek to review the changes and publish a summary. The workflow does not run project tests. The guide includes a repeatable defect-and-fix walkthrough.
 
 这个仓库演示一个**最小可跑通**的端到端流程：
 
