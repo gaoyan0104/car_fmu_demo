@@ -8,6 +8,9 @@ def find_block(text: str, header_regex: str) -> str:
     Find the {...} block after a header (regex).
     Minimal brace-matching parser for PoC.
     """
+    if not header_regex:
+        raise ValueError("header_regex must not be empty")
+
     m = re.search(header_regex + r"\s*\{", text)
     if not m:
         raise ValueError(f"Cannot find block header: {header_regex}")
