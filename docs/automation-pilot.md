@@ -27,7 +27,7 @@
 
 ## 第一步：上传安装配置
 
-迁移到其他仓库时，复制 `.github/workflows/review-automation.yml` 和 `.github/prompts/review.md`，按目标项目修改提示词第 4 条的单位、接口等规则，然后通过 PR 合入目标仓库的默认分支。首次安装需要手动创建 PR；工作流合入后才能为任务分支自动创建 PR。
+迁移到其他仓库时，复制 `.github/workflows/review-automation.yml` 和 `.github/prompts/review.md`，按目标项目需要调整提示词，然后通过 PR 合入目标仓库的默认分支。首次安装需要手动创建 PR；工作流合入后才能为任务分支自动创建 PR。
 
 本文和演示补丁仅用于说明与测试，不是工作流运行的必需文件。仓库名称和默认分支由 GitHub 自动读取，无需写死 `car_fmu_demo` 或 `main`。
 
@@ -38,9 +38,35 @@
 
 模型默认 `deepseek-flash`；需要更改时添加 Variable `AI_REVIEW_MODEL`。密钥按仓库隔离，Daidalis 仓库中的 Secret 不会自动用于这里。
 
+以下 Repository Variables 控制审查的执行位置和 API 服务，留空时沿用原有云端 DeepSeek 配置：
+
+| Variable | 留空时 | 自托管或局域网配置 |
+| --- | --- | --- |
+| `AI_REVIEW_RUNNER` | `ubuntu-latest` | 已注册 Runner 的专用标签，例如 `ai-review-local` |
+| `AI_REVIEW_BASE_URL` | `https://api.deepseek.com/anthropic` | 中转服务提供的 Anthropic 兼容接口根地址 |
+| `AI_REVIEW_MODEL` | `deepseek-flash` | 中转服务接受的模型名称 |
+
+密钥继续放在 Secret `DEEPSEEK_API_KEY` 中。接入小组中转时将其值换成中转密钥即可；Secret 的名称不决定调用哪家服务。API 地址和模型名称通过上述 Variables 配置，不在日志或源码中填写密钥。
+
 工作流将 `DEEPSEEK_API_KEY` 传给官方 Action 的 `anthropic_api_key` 输入，并将 `ANTHROPIC_BASE_URL` 配为 `https://api.deepseek.com/anthropic`。这里采用 DeepSeek 的 Anthropic 兼容接口，不是之前自写客户端使用的 Chat Completions 接口。
 
 工作流显式提供 GitHub 自带的 `GITHUB_TOKEN`，不要求额外安装 Claude GitHub App，也不把个人 GitHub PAT 写进源码。上传仓库仍需要你的 GitHub 登录；DeepSeek 密钥不能用于 GitHub 登录。
+
+## 在本机模拟局域网电脑
+
+这项模拟仍由 GitHub 触发和调度：`prepare` job 在 GitHub 云端创建或查找 PR，`review` job 在本机运行官方 Claude Code Action，通过 DeepSeek 接口审查，再把总结写回 GitHub。
+
+1. 在仓库 **Settings → Actions → Runners → New self-hosted runner** 选择 Linux/x64（本例为 WSL Ubuntu）。在独立目录下载 Runner，按页面命令注册；增加自定义标签 `ai-review-local`。本机需安装 Git、GitHub CLI、curl、unzip 等基础工具，并能访问 GitHub、Action 与运行时下载地址，以及模型 API。官方 Action 会安装 Node.js、Bun 和 Claude Code。
+2. 注册后在 Runner 目录执行 `./run.sh`，保持终端和 WSL 运行；看到 `Listening for Jobs` 后，网页上的 Runner 应显示 Online。电脑休眠或 Runner 停止时，待审查任务会排队。
+3. 在 **Settings → Secrets and variables → Actions → Variables** 设置 `AI_REVIEW_RUNNER=ai-review-local`、`AI_REVIEW_BASE_URL=https://api.deepseek.com/anthropic`、`AI_REVIEW_MODEL=deepseek-flash`。沿用已经配置的 `DEEPSEEK_API_KEY`，无需在本机另存模型密钥。
+4. 工作流修改合入默认分支后，在 **Actions → Review automation → Run workflow** 选择默认分支，输入已有的 `work/<任务>` 分支。也可以从最新默认分支创建任务分支、提交并推送，测试自动创建 PR 的完整流程。
+5. 在本机 Runner 终端确认收到 `AI review and summary` 任务；在 Actions job 的 `Set up job` 中确认 Runner 名称是本机注册的名称，并确认 PR 总结确实更新。仅仅看到工作流成功不足以证明使用了本机，需核对 Runner 名称。
+
+本次试运行使用一次性 Runner（注册时添加 `--ephemeral`），处理一个 job 后自动退出并从 GitHub 注销；需要再次试运行时重新注册、启动。测试结束后删除 `AI_REVIEW_RUNNER` Variable，可恢复云端执行；API 地址留空或仍用 DeepSeek 地址均可。普通 Runner 可用 `Ctrl+C` 停止，长期服务器可按 GitHub 官方说明安装为服务。
+
+当前测试仓库为公开仓库，本机试运行只调度自己的演示分支，并在完成后退出。正式环境应使用专用、可隔离的 Runner 环境，不在个人开发电脑上长期执行外部贡献者提交的工作流。
+
+测试通过后，在真正的局域网电脑重新安装和注册 Runner，使用标签 `ai-review-lan`，再把 `AI_REVIEW_RUNNER` 改为该标签、API 地址和模型改为小组配置，并更新 Secret。运行机器必须同时能访问 GitHub 所需的外网地址和局域网中转；中转必须兼容 Anthropic Messages、流式响应和工具调用。此时仍须用真实中转再跑一次审查，不能把 DeepSeek 模拟成功视为内网接入已验证。
 
 ## 第三步：制造一个可验证的错误
 
