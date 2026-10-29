@@ -27,17 +27,9 @@
 
 ## 第一步：上传安装配置
 
-当前准备分支是 `codex/review-automation-pilot`。在有该仓库写入权限且已经完成 GitHub 登录的终端执行：
+迁移到其他仓库时，复制 `.github/workflows/review-automation.yml` 和 `.github/prompts/review.md`，按目标项目修改提示词第 4 条的单位、接口等规则，然后通过 PR 合入目标仓库的默认分支。首次安装需要手动创建 PR；工作流合入后才能为任务分支自动创建 PR。
 
-```bash
-cd /home/gy/project/car_fmu_demo
-git status
-git add .github .gitignore README.md docs examples
-git commit -m "Configure official Claude Code Action review pilot"
-git push -u origin codex/review-automation-pilot
-```
-
-打开 <https://github.com/gaoyan0104/car_fmu_demo>，手动创建安装 PR：该分支 → `main`。人工检查配置后合并，流程才安装到默认分支；第一个安装 PR 需要手动创建。
+本文和演示补丁仅用于说明与测试，不是工作流运行的必需文件。仓库名称和默认分支由 GitHub 自动读取，无需写死 `car_fmu_demo` 或 `main`。
 
 ## 第二步：网页配置
 
@@ -79,7 +71,9 @@ git push -u origin work/demo-review
 2. 官方 Action 阅读差异和相关文件，在 PR 中用中文指出单位错误、源码位置和影响。
 3. 总结注明“源码审查，未运行项目测试、构建或仿真”。
 
-模型调用失败、权限不足或只输出最终对话而没实际发表评论，均不能当作线上验收成功。此测试仓库的最近一条机器人评论由提示词指导使用 GitHub CLI 内置 `--edit-last --create-if-none` 更新。
+模型调用失败、权限不足或只输出最终对话而没实际发表评论，均不能当作线上验收成功。工作流会检查本轮是否存在带专用标记、完整提交 SHA 和新更新时间的机器人总结；没有找到则报错。成功时，Actions 运行摘要中提供总结链接。
+
+总结使用隐藏标记 `<!-- ai-pr-review -->` 定位。同一 PR 后续审查更新这条总结，保留其他评论。第一次使用此版本时，旧版没有标记的总结会保留，机器人会新建一条带标记的总结。
 
 补充 PR 的“任务目标”和“改动范围”后，可在 Actions 的 **Review automation → Run workflow** 手动重跑：执行分支选 `main`，输入 `branch` 填 `work/demo-review`。这次直接审查该分支当前提交，不等待其他工作流。
 
@@ -94,6 +88,10 @@ git push
 
 Review automation 应对最新提交重新审查，确认单位错误已修复并更新总结。
 
+同一分支后续推送会复用仍打开的 PR，包括已经从草稿转为待审核的 PR，不会把它重新改为草稿。同一 PR 的新审查会取消尚未完成的旧审查；获得运行机会后再读取最新提交。发布前还会检查 PR 是否仍打开且提交未变，避免把旧结果当作最新结论。
+
+只创建分支而没有提交文件改动时，流程正常跳过，不建 PR、不调用模型。缺少 `DEEPSEEK_API_KEY` 时，在调用模型前明确报错。修复代码后仍按普通开发方式 `git commit`、`git push` 即可。
+
 演示结束后，在网页关闭演示 PR，按需删除演示分支。已安装到 `main` 的流程可以继续用于新的 `work/<任务>` 分支。
 
 ## 为什么推送后分两次运行
@@ -102,8 +100,8 @@ Review automation 应对最新提交重新审查，确认单位错误已修复�
 
 因此，同一个工作流分两种入口：`push` 只准备 PR 并调用 GitHub 的 `workflow_dispatch` 接口；`workflow_dispatch` 准备 PR 后执行官方 Action，不再发起调度，所以不会循环。GitHub 允许 `GITHUB_TOKEN` 触发这种事件，不需要额外 PAT。准备 job 的 `actions: write` 用于调度；官方 Action 显式允许 `github-actions[bot]` 账号发起的这类运行。
 
-所有审查指令都写在 `.github/prompts/review.md`，修改审查要求时编辑这一份文件即可。AI 从默认分支读取提示词，通过 GitHub 工具读取提交源码并发布 PR 评论。它不执行提交中的代码。工作流成功只表示任务完成，合并由人决定。
+所有审查指令都写在 `.github/prompts/review.md`，修改审查要求时编辑这一份文件即可。AI 从目标默认分支的最新提交读取提示词，通过 GitHub 工具读取待审查提交的源码并发布 PR 评论。它不执行提交中的代码。工作流成功表示本轮审查总结已发布（或本轮已过期/无差异而跳过），不代表代码无缺陷，合并由人决定。
 
-审查 job 仅保留读取代码和写入 PR 评论所需的权限。提示词不授权创建 Issue，工具列表也不包含 Issue 操作。验收时需要确认 Actions 运行成功，且 PR 中实际出现了对应提交的审查总结；本地检查不能替代云端验收。
+审查 job 仅保留读取代码和写入 PR 评论所需的权限，不配置 `issues: write`，不提供创建 Issue 的工具。GitHub 的普通 PR 评论也使用 `issues/comments` API 路径，此路径仅用于定位和更新本流程的总结。验收时需要确认 Actions 运行成功，且 PR 中实际出现了对应提交的审查总结；本地检查不能替代云端验收。
 
 参考：[官方 Action](https://github.com/anthropics/claude-code-action)、[DeepSeek Anthropic 兼容接口](https://api-docs.deepseek.com/zh-cn/guides/anthropic_api/)、[GitHub 工作流之间的触发规则](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow)、[GitHub CLI 评论更新](https://cli.github.com/manual/gh_pr_comment)。
