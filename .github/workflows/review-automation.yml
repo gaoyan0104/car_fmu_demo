@@ -140,7 +140,7 @@ jobs:
         if: steps.current.outputs.ready == 'true'
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ steps.current.outputs.base_sha }}
           persist-credentials: false
       - name: Review with the official Claude Code Action
         if: steps.current.outputs.ready == 'true'
