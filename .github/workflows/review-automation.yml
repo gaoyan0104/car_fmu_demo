@@ -92,7 +92,7 @@ jobs:
     name: AI review and summary
     needs: prepare
     if: github.event_name == 'workflow_dispatch' && needs.prepare.outputs.pr_number != ''
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.AI_REVIEW_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     concurrency:
       group: pr-review-${{ github.repository }}-${{ needs.prepare.outputs.pr_number }}
@@ -102,7 +102,7 @@ jobs:
       pull-requests: write
     env:
       SUMMARY_MARKER: '<!-- ai-pr-review -->'
-      ANTHROPIC_BASE_URL: https://api.deepseek.com/anthropic
+      ANTHROPIC_BASE_URL: ${{ vars.AI_REVIEW_BASE_URL || 'https://api.deepseek.com/anthropic' }}
       ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ vars.AI_REVIEW_MODEL || 'deepseek-flash' }}
       ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.AI_REVIEW_MODEL || 'deepseek-flash' }}
       ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ vars.AI_REVIEW_MODEL || 'deepseek-flash' }}
@@ -149,6 +149,7 @@ jobs:
           github_token: ${{ github.token }}
           anthropic_api_key: ${{ secrets.DEEPSEEK_API_KEY }}
           allowed_bots: 'github-actions[bot]'
+          path_to_claude_code_executable: ${{ runner.environment == 'self-hosted' && vars.AI_REVIEW_CLAUDE_PATH || '' }}
           classify_inline_comments: 'false'
           show_full_output: 'false'
           prompt: |
